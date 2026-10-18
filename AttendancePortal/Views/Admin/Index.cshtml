@@ -1,0 +1,39 @@
+﻿@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<h1>Admin dashboard</h1>
+<p class="text-muted">Signed in as an administrator.</p>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Students</h5>
+                <p class="card-text display-6">@ViewBag.StudentCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Faculty</h5>
+                <p class="card-text display-6">@ViewBag.FacultyCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Courses</h5>
+                <p class="card-text display-6">@ViewBag.CourseCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+<a asp-action="Courses" class="btn btn-primary mb-3">Manage courses</a>
+<div class="alert alert-info mt-3">
+    This is the Week 1 shell. Manage Students / Faculty / Courses (CRUD) and attendance analytics
+    are added here in Week 3.
+</div>
+<a asp-action="FacultyList" class="btn btn-primary mb-3">Manage faculty</a>

@@ -1,0 +1,87 @@
+﻿@model AttendancePortal.Models.Domain.Student
+
+@{
+    ViewData["Title"] = "Register Face";
+}
+
+<h1>Register your face</h1>
+<p class="text-muted">
+    Hello @Model.FullName. Look straight at the camera in good light, with nothing covering your face.
+</p>
+
+@Html.AntiForgeryToken()
+
+<div class="row">
+    <div class="col-md-7 mb-3">
+        <video id="video" autoplay playsinline muted
+               style="width:100%; max-width:640px; border-radius:8px; background:#000; transform:scaleX(-1);"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+    <div class="col-md-5">
+        <button id="startBtn" type="button" class="btn btn-secondary mb-2">Start camera</button><br />
+        <button id="captureBtn" type="button" class="btn btn-primary mb-2" disabled>Capture and register</button>
+        <div id="status" class="alert alert-info mt-2">Click "Start camera" to begin.</div>
+        <a asp-action="Index" class="btn btn-link">Back to dashboard</a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startBtn = document.getElementById('startBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const statusBox = document.getElementById('status');
+        let stream = null;
+
+        function setStatus(text, kind) {
+            statusBox.className = 'alert alert-' + kind + ' mt-2';
+            statusBox.textContent = text;
+        }
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+                video.srcObject = stream;
+                captureBtn.disabled = false;
+                setStatus('Camera is on. Look at the camera, then click "Capture and register".', 'info');
+            } catch (err) {
+                setStatus('Could not open the camera: ' + err.message + '. Allow camera access in the browser and try again.', 'danger');
+            }
+        });
+
+        captureBtn.addEventListener('click', async () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const image = canvas.toDataURL('image/jpeg', 0.92);
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            captureBtn.disabled = true;
+            setStatus('Processing...', 'secondary');
+
+            try {
+                const response = await fetch('/Student/RegisterFace', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ image: image })
+                });
+                const data = await response.json();
+                setStatus(data.message || 'Something went wrong.', response.ok ? 'success' : 'danger');
+            } catch (err) {
+                setStatus('Request failed: ' + err.message, 'danger');
+            }
+
+            captureBtn.disabled = false;
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+        });
+    </script>
+}

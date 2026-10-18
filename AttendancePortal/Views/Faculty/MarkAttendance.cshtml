@@ -1,0 +1,159 @@
+﻿@model AttendancePortal.Models.MarkAttendanceViewModel
+
+@{
+    ViewData["Title"] = "Mark Attendance";
+}
+
+<h1>Mark attendance</h1>
+<p class="text-muted">
+    @Model.Course.CourseCode — @Model.Course.CourseName ·
+    @Model.RegisteredCount of @Model.EnrolledCount enrolled students have registered a face
+</p>
+
+@Html.AntiForgeryToken()
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <video id="video" autoplay playsinline muted
+               style="width:100%; max-width:640px; border-radius:8px; background:#000; transform:scaleX(-1);"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <div class="mt-2">
+            <button id="startBtn" type="button" class="btn btn-secondary">Start camera</button>
+            <button id="scanBtn" type="button" class="btn btn-primary" disabled>Scan face</button>
+        </div>
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="autoBox" disabled />
+            <label class="form-check-label" for="autoBox">Auto-scan every 3 seconds</label>
+        </div>
+
+        <div id="status" class="alert alert-info mt-3">Click "Start camera" to begin.</div>
+    </div>
+
+    <div class="col-md-6">
+        <h5>Present today (<span id="presentCount">@Model.Today.Count</span>)</h5>
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Name</th><th>Roll no.</th><th>Time</th></tr>
+            </thead>
+            <tbody id="listBody">
+                @if (!Model.Today.Any())
+                {
+                    <tr id="emptyRow"><td colspan="3" class="text-muted">No one marked yet today.</td></tr>
+                }
+                @foreach (var row in Model.Today)
+                {
+                    <tr>
+                        <td>@row.FullName</td>
+                        <td>@row.RollNumber</td>
+                        <td>@row.Time</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <a asp-action="Index" class="btn btn-link">Back to dashboard</a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const courseId = @Model.Course.Id;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startBtn = document.getElementById('startBtn');
+        const scanBtn = document.getElementById('scanBtn');
+        const autoBox = document.getElementById('autoBox');
+        const statusBox = document.getElementById('status');
+        const listBody = document.getElementById('listBody');
+        const presentCount = document.getElementById('presentCount');
+        let stream = null;
+        let busy = false;
+        let timer = null;
+
+        function setStatus(text, kind) {
+            statusBox.className = 'alert alert-' + kind + ' mt-3';
+            statusBox.textContent = text;
+        }
+
+        function addRow(name, roll, time) {
+            const empty = document.getElementById('emptyRow');
+            if (empty) { empty.remove(); }
+
+            const tr = document.createElement('tr');
+            [name, roll, time].forEach(value => {
+                const td = document.createElement('td');
+                td.textContent = value;
+                tr.appendChild(td);
+            });
+            listBody.appendChild(tr);
+            presentCount.textContent = String(Number(presentCount.textContent) + 1);
+        }
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+                video.srcObject = stream;
+                scanBtn.disabled = false;
+                autoBox.disabled = false;
+                setStatus('Camera is on. Click "Scan face" or turn on auto-scan.', 'info');
+            } catch (err) {
+                setStatus('Could not open the camera: ' + err.message, 'danger');
+            }
+        });
+
+        async function scan() {
+            if (busy || !stream || !video.videoWidth) { return; }
+            busy = true;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const image = canvas.toDataURL('image/jpeg', 0.92);
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            setStatus('Scanning...', 'secondary');
+            try {
+                const response = await fetch('/Faculty/MarkAttendance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ courseId: courseId, image: image })
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    setStatus(data.message || 'Something went wrong.', 'danger');
+                } else if (!data.matched) {
+                    setStatus(data.message, 'warning');
+                } else if (data.alreadyMarked) {
+                    setStatus(data.studentName + ' (' + data.rollNumber + ') is already marked present today.', 'info');
+                } else {
+                    setStatus('Marked present: ' + data.studentName + ' (' + data.rollNumber + ') - similarity ' + data.score, 'success');
+                    addRow(data.studentName, data.rollNumber, data.time);
+                }
+            } catch (err) {
+                setStatus('Request failed: ' + err.message, 'danger');
+            }
+
+            busy = false;
+        }
+
+        scanBtn.addEventListener('click', scan);
+
+        autoBox.addEventListener('change', () => {
+            if (autoBox.checked) {
+                timer = setInterval(scan, 3000);
+            } else {
+                clearInterval(timer);
+                timer = null;
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (timer) { clearInterval(timer); }
+            if (stream) { stream.getTracks().forEach(t => t.stop()); }
+        });
+    </script>
+}

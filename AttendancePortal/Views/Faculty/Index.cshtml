@@ -1,0 +1,41 @@
+﻿@model AttendancePortal.Models.Domain.Faculty?
+
+@{
+    ViewData["Title"] = "Faculty Dashboard";
+}
+
+<h1>Faculty dashboard</h1>
+
+@if (Model is null)
+{
+    <div class="alert alert-warning mt-3">
+        No faculty profile is linked to this account yet. Ask an admin to create one and link it
+        to your login.
+    </div>
+}
+else
+{
+    <p class="text-muted">Welcome, @Model.FullName (@Model.Department)</p>
+
+    <h5 class="mt-4">Your courses</h5>
+    @if (!Model.Courses.Any())
+    {
+        <p>No courses assigned yet.</p>
+    }
+    else
+    {
+        <ul class="list-group">
+            @foreach (var course in Model.Courses)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>@course.CourseCode — @course.CourseName</span>
+                    <a asp-action="MarkAttendance" asp-route-courseId="@course.Id" class="btn btn-sm btn-primary">Mark attendance</a>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="alert alert-info mt-4">
+        Reports and manual attendance overrides are added here in Week 3.
+    </div>
+}

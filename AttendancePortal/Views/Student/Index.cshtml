@@ -1,0 +1,35 @@
+﻿@model AttendancePortal.Models.Domain.Student?
+
+@{
+    ViewData["Title"] = "Student Dashboard";
+}
+
+<h1>Student dashboard</h1>
+
+@if (Model is null)
+{
+    <div class="alert alert-warning mt-3">
+        No student profile is linked to this account yet. Ask an admin to create one and link it
+        to your login.
+    </div>
+}
+else
+{
+    <p class="text-muted">Welcome, @Model.FullName (Roll No. @Model.RollNumber)</p>
+    <p>Course: @(Model.Course?.CourseName ?? "Not enrolled yet")</p>
+
+    <div class="alert @(Model.FaceRegistered ? "alert-success" : "alert-warning") mt-3">
+        @if (Model.FaceRegistered)
+        {
+            <text>Your face is registered — attendance can be marked automatically.</text>
+        }
+        else
+        {
+            <text>Your face is not registered yet. Register it so attendance can be marked automatically.</text>
+        }
+    </div>
+
+    <a asp-controller="Student" asp-action="RegisterFace" class="btn btn-primary">
+        @(Model.FaceRegistered ? "Re-register my face" : "Register my face")
+    </a>
+}
